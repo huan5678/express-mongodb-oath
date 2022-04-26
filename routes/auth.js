@@ -1,5 +1,5 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 const axios = require('axios');
 const dotenv = require('dotenv');
 dotenv.config({ path: './.env' });
@@ -67,6 +67,57 @@ router.get('/facebook/callback',
     failureRedirect: '/error',
     session: false
   }));
+
+
+const line_redirect_url = process.env.LINE_REDIRECT_URL;
+const line_channel_id = process.env.LINE_CLIENT_ID;
+const line_channel_secret = process.env.GOOGLE_CLIENT_SECRET;
+const line_state = 'mongodb-express-line-login';
+
+router.get('/line', (req, res) =>
+{
+  const query = {
+    redirect_uri: line_redirect_url,
+    client_id: line_channel_id,
+    access_type: 'offline',
+    response_type: 'code',
+    state: line_state,
+    prompt: 'consent',
+    scope: 'profile%20openid%20email'
+  }
+  const auth_url = 'https://access.line.me/oauth2/v2.1/authorize'
+  const queryString = new URLSearchParams(query).toString();
+  res.redirect(`${auth_url}?${queryString}`)
+});
+
+router.get('/line/callback', async (req, res) =>
+{
+  const code = req.query.code;
+  const options = {
+    code,
+    clientId: google_client_id,
+    clientSecret: google_client_secret,
+    redirectUri: google_redirect_url,
+    state: line_state,
+    grant_type: 'authorization_code'
+  }
+  const url = 'https://api.line.me/oauth2/v2.1/token';
+  const queryString = new URLSearchParams(options).toString();
+  const response = await axios.post(url, queryString);
+
+  //利用tokne取得需要的資料
+  const { id_token, access_token } = response.data
+
+  const getData = await axios.get(
+    `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
+    {
+      headers: {
+        Authorization: `Bearer ${id_token}`
+      }
+    }
+  )
+  res.redirect('/auth/success');
+})
 
 // router.get('/facebook', (req, res) =>
 // {
