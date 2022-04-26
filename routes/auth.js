@@ -61,6 +61,7 @@ router.get('/google/callback', async (req, res) =>
 router.get('/facebook', passport.authenticate('facebook', {
   scope: ['public_profile', 'email']
 }));
+
 router.get('/facebook/callback',
   passport.authenticate('facebook', {
     successRedirect: '/auth/success',
@@ -109,9 +110,28 @@ router.get('/facebook/callback',
 //   // res.redirect('/auth/success');
 // });
 
+
+const line_redirect_url = process.env.LINE_REDIRECT_URL;
+const line_channel_id = process.env.LINE_CHANNEL_ID;
+const line_channel_secret = process.env.LINE_CHANNEL_SECRET;
+
+router.get('/line', (req, res) =>
+{
+  const query = {
+    redirect_uri: line_redirect_url,
+    client_id: line_channel_id,
+    response_type: 'code',
+    state: '???',
+  }
+  const auth_url = 'https://access.line.me/dialog/oauth/weblogin'
+  const queryString = new URLSearchParams(query).toString();
+  res.redirect(`${auth_url}?${queryString}`)
+})
+
+
 router.get('/success', (req, res) =>
 {
-  res.send('get data from google successfully')
+  res.send('get data from successfully')
 })
 
 router.get('error', (req, res) =>
