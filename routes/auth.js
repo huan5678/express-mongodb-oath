@@ -4,6 +4,7 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 dotenv.config({ path: './.env' });
 const passport = require('passport');
+const { v4: uuidv4 } = require('uuid');
 
 const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
 const google_client_id = process.env.GOOGLE_CLIENT_ID;
@@ -78,17 +79,15 @@ const line_state = 'mongodb-express-line-login';
 router.get('/line', (req, res) =>
 {
   const query = {
-    redirect_uri: line_redirect_url,
-    client_id: line_channel_id,
-    access_type: 'offline',
     response_type: 'code',
+    client_id: line_channel_id,
+    redirect_uri: line_redirect_url,
     state: line_state,
-    prompt: 'consent',
-    scope: 'profile%20openid%20email'
+    scope: 'profile',
+    nonce: uuidv4(),
   }
   const auth_url = 'https://access.line.me/oauth2/v2.1/authorize'
   const queryString = new URLSearchParams(query).toString();
-  console.log(queryString);
   res.redirect(`${auth_url}?${queryString}`)
 });
 
@@ -105,13 +104,14 @@ router.get('/line/callback', async (req, res) =>
   }
   const url = 'https://api.line.me/oauth2/v2.1/token';
   const queryString = new URLSearchParams(options).toString();
+  console.log(queryString);
   const response = await axios.post(url, queryString);
 
   //利用tokne取得需要的資料
   const { id_token, access_token } = response.data;
 
-  console.log(id_token);
-  console.log(access_token);
+  // console.log(id_token);
+  // console.log(access_token);
 
   const getData = await axios.get(
     `https://api.line.me/v2/profile`,
@@ -121,8 +121,9 @@ router.get('/line/callback', async (req, res) =>
       }
     }
   )
-  res.redirect('/auth/success');
-})
+  res.send(getData.data);
+  // res.redirect('/auth/success');
+});
 
 // router.get('/facebook', (req, res) =>
 // {
