@@ -71,8 +71,8 @@ router.get('/facebook/callback',
 
 
 const line_redirect_url = process.env.LINE_REDIRECT_URL;
-const line_channel_id = process.env.LINE_CLIENT_ID;
-const line_channel_secret = process.env.GOOGLE_CLIENT_SECRET;
+const line_channel_id = process.env.LINE_CHANNEL_ID;
+const line_channel_secret = process.env.LINE_CHANNEL_SECRET;
 const line_state = 'mongodb-express-line-login';
 
 router.get('/line', (req, res) =>
@@ -88,6 +88,7 @@ router.get('/line', (req, res) =>
   }
   const auth_url = 'https://access.line.me/oauth2/v2.1/authorize'
   const queryString = new URLSearchParams(query).toString();
+  console.log(queryString);
   res.redirect(`${auth_url}?${queryString}`)
 });
 
@@ -96,9 +97,9 @@ router.get('/line/callback', async (req, res) =>
   const code = req.query.code;
   const options = {
     code,
-    clientId: google_client_id,
-    clientSecret: google_client_secret,
-    redirectUri: google_redirect_url,
+    client_id: line_channel_id,
+    client_secret: line_channel_secret,
+    redirect_uri: line_redirect_url,
     state: line_state,
     grant_type: 'authorization_code'
   }
@@ -107,10 +108,13 @@ router.get('/line/callback', async (req, res) =>
   const response = await axios.post(url, queryString);
 
   //利用tokne取得需要的資料
-  const { id_token, access_token } = response.data
+  const { id_token, access_token } = response.data;
+
+  console.log(id_token);
+  console.log(access_token);
 
   const getData = await axios.get(
-    `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
+    `https://api.line.me/v2/profile`,
     {
       headers: {
         Authorization: `Bearer ${id_token}`
@@ -162,22 +166,18 @@ router.get('/line/callback', async (req, res) =>
 // });
 
 
-const line_redirect_url = process.env.LINE_REDIRECT_URL;
-const line_channel_id = process.env.LINE_CHANNEL_ID;
-const line_channel_secret = process.env.LINE_CHANNEL_SECRET;
-
-router.get('/line', (req, res) =>
-{
-  const query = {
-    redirect_uri: line_redirect_url,
-    client_id: line_channel_id,
-    response_type: 'code',
-    state: '???',
-  }
-  const auth_url = 'https://access.line.me/dialog/oauth/weblogin'
-  const queryString = new URLSearchParams(query).toString();
-  res.redirect(`${auth_url}?${queryString}`)
-})
+// router.get('/line', (req, res) =>
+// {
+//   const query = {
+//     redirect_uri: line_redirect_url,
+//     client_id: line_channel_id,
+//     response_type: 'code',
+//     state: '???',
+//   }
+//   const auth_url = 'https://access.line.me/dialog/oauth/weblogin'
+//   const queryString = new URLSearchParams(query).toString();
+//   res.redirect(`${auth_url}?${queryString}`)
+// })
 
 
 router.get('/success', (req, res) =>
