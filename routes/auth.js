@@ -132,6 +132,61 @@ router.get('/line/callback', async (req, res) =>
   // res.redirect('/auth/success');
 });
 
+const github_redirect_url = process.env.GITHUB_REDIRECT_URL;
+const github_client_id = process.env.GITHUB_CLIENT_ID;
+const github_client_secret = process.env.GITHUB_CLIENT_SECRET;
+const github_state = 'mongodb-express-github-login';
+
+router.get('/github', (req, res) =>
+{
+  const query = {
+    client_id: github_client_id,
+    redirect_uri: github_redirect_url,
+    scope: 'user',
+    state: github_state,
+  }
+  const auth_url = 'https://github.com/login/oauth/authorize'
+  const queryString = new URLSearchParams(query).toString();
+  res.redirect(`${auth_url}?${queryString}`)
+});
+
+router.get('/github/callback', async (req, res) =>
+{
+  const code = req.query.code;
+  const options = {
+    code,
+    client_id: github_client_id,
+    client_secret: github_client_secret,
+    redirect_uri: github_redirect_url,
+  }
+  const url = 'https://github.com/login/oauth/access_token';
+  const queryString = new URLSearchParams(options).toString();
+  const response = await axios.post(url, queryString, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  console.log(response.data);
+  const { access_token } = response.data;
+
+  const getVerify = await axios.get(
+    `https://api.github.com/user`,
+    {
+      headers: {
+        Authorization: `token ${access_token}`,
+      },
+    }
+  )
+  console.log(getVerify.data);
+  res.send(
+    {
+      verify: getVerify.data,
+    }
+  );
+});
+
+
 // router.get('/facebook', (req, res) =>
 // {
 //   const query = {
@@ -162,15 +217,6 @@ router.get('/line/callback', async (req, res) =>
 //   console.log(access_token);
 //   console.log(token_type);
 //   console.log(expires_in);
-//   // const getData = await axios.get(
-//   //   `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
-//   //   {
-//   //     headers: {
-//   //       Authorization: `Bearer ${id_token}`
-//   //     }
-//   //   }
-//   // )
-//   // res.redirect('/auth/success');
 // });
 
 
