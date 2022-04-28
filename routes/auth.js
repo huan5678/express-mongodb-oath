@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const dotenv = require('dotenv');
-dotenv.config({ path: './.env' });
+
 const passport = require('passport');
 const { v4: uuidv4 } = require('uuid');
 
@@ -30,8 +29,6 @@ router.get('/google', (req, res) =>
 
 router.get('/google/callback', async (req, res) =>
 {
-
-  // 取得token
   const code = req.query.code;
   const options = {
     code,
@@ -44,7 +41,6 @@ router.get('/google/callback', async (req, res) =>
   const queryString = new URLSearchParams(options).toString();
   const response = await axios.post(url, queryString);
 
-  //利用tokne取得需要的資料
   const { id_token, access_token } = response.data
 
   const getData = await axios.get(
@@ -100,30 +96,96 @@ router.get('/line/callback', async (req, res) =>
     client_secret: line_channel_secret,
     redirect_uri: line_redirect_url,
     state: line_state,
-    grant_type: 'authorization_code'
+    grant_type: 'authorization_code',
+  }
+  const tokenHeader = {
+    'Content-Type': 'application/x-www-form-urlencoded'
   }
   const url = 'https://api.line.me/oauth2/v2.1/token';
   const queryString = new URLSearchParams(options).toString();
-  console.log(queryString);
-  const response = await axios.post(url, queryString);
+  const response = await axios.post(url, queryString, {
+    headers: tokenHeader
+  });
 
-  //利用tokne取得需要的資料
-  const { id_token, access_token } = response.data;
+  const { access_token } = response.data;
 
-  // console.log(id_token);
-  // console.log(access_token);
+  console.log('data = ', response.data);
+  console.log('access = ', access_token);
 
-  const getData = await axios.get(
-    `https://api.line.me/v2/profile`,
+  const getVerify = await axios.get(
+    `https://api.line.me/oauth2/v2.1/verify?access_token=${access_token}`,
+  )
+  const getProfile = await axios.get(
+    'https://api.line.me/v2/profile',
     {
       headers: {
-        Authorization: `Bearer ${id_token}`
+        Authorization: `Bearer ${access_token}`,
       }
     }
   )
-  res.send(getData.data);
+  res.send(
+    {
+      verify: getVerify.data,
+      profile: getProfile.data,
+    }
+  );
   // res.redirect('/auth/success');
 });
+
+const github_redirect_url = process.env.GITHUB_REDIRECT_URL;
+const github_client_id = process.env.GITHUB_CLIENT_ID;
+const github_client_secret = process.env.GITHUB_CLIENT_SECRET;
+const github_state = 'mongodb-express-github-login';
+
+router.get('/github', (req, res) =>
+{
+  const query = {
+    client_id: github_client_id,
+    redirect_uri: github_redirect_url,
+    scope: 'user',
+    state: github_state,
+  }
+  const auth_url = 'https://github.com/login/oauth/authorize'
+  const queryString = new URLSearchParams(query).toString();
+  res.redirect(`${auth_url}?${queryString}`)
+});
+
+router.get('/github/callback', async (req, res) =>
+{
+  const code = req.query.code;
+  const options = {
+    code,
+    client_id: github_client_id,
+    client_secret: github_client_secret,
+    redirect_uri: github_redirect_url,
+  }
+  const url = 'https://github.com/login/oauth/access_token';
+  const queryString = new URLSearchParams(options).toString();
+  const response = await axios.post(url, queryString, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  console.log(response.data);
+  const { access_token } = response.data;
+
+  const getVerify = await axios.get(
+    `https://api.github.com/user`,
+    {
+      headers: {
+        Authorization: `token ${access_token}`,
+      },
+    }
+  )
+  console.log(getVerify.data);
+  res.send(
+    {
+      verify: getVerify.data,
+    }
+  );
+});
+
 
 // router.get('/facebook', (req, res) =>
 // {
@@ -155,30 +217,7 @@ router.get('/line/callback', async (req, res) =>
 //   console.log(access_token);
 //   console.log(token_type);
 //   console.log(expires_in);
-//   // const getData = await axios.get(
-//   //   `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
-//   //   {
-//   //     headers: {
-//   //       Authorization: `Bearer ${id_token}`
-//   //     }
-//   //   }
-//   // )
-//   // res.redirect('/auth/success');
 // });
-
-
-// router.get('/line', (req, res) =>
-// {
-//   const query = {
-//     redirect_uri: line_redirect_url,
-//     client_id: line_channel_id,
-//     response_type: 'code',
-//     state: '???',
-//   }
-//   const auth_url = 'https://access.line.me/dialog/oauth/weblogin'
-//   const queryString = new URLSearchParams(query).toString();
-//   res.redirect(`${auth_url}?${queryString}`)
-// })
 
 
 router.get('/success', (req, res) =>

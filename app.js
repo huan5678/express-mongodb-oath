@@ -5,6 +5,8 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const passport = require('passport');
+const dotenv = require('dotenv');
+dotenv.config({ path: './.env' });
 
 require('./utils/passport');
 
