@@ -1,7 +1,6 @@
 const passport = require('passport');
 const strategy = require('passport-facebook');
-const dotenv = require('dotenv');
-dotenv.config({ path: './.env' });
+
 const FacebookStrategy = strategy.Strategy;
 
 passport.use(
