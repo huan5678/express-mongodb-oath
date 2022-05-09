@@ -22,34 +22,50 @@ const postController = {
   createPost: async (req, res) => {
     try {
       const data = req.body;
-      await Post.create(data);
-      const getAllPosts = await Post.find();
-      successHandle(res, '成功新增一則貼文', getAllPosts)
+      if (data.content) {
+        await Post.create(data);
+        const getAllPosts = await Post.find();
+        successHandle(res, '成功新增一則貼文', getAllPosts)
+      } else {
+        errorHandle(res)
+      }
     } catch (err) {
-      errorHandle(res, err)
+      errorHandle(res, err);
     }
   },
   updatePost: async (req, res) => {
     try {
       const id = req.params.id;
       const data = req.body;
-      await Post.findByIdAndUpdate(id, data);
-      const getAllPosts = await Post.find();
-      successHandle(res, '成功更新一則貼文', getAllPosts)
+      if (data.content) {
+        await Post.findByIdAndUpdate(id, data);
+        const getAllPosts = await Post.find();
+        successHandle(res, '成功更新一則貼文', getAllPosts)
+      } else {
+        errorHandle(res);
+      }
     } catch (err) {
-      errorHandle(res, err)
+      errorHandle(res, err);
     }
   },
+<<<<<<< HEAD
   deleteAllPost: async (req, res) => {
+=======
+  deleteAllPost: async ({res}) => {
+>>>>>>> 75aaa8f20bc49a131c65bbb7ec08627f87d997a5
     await Post.deleteMany({})
     successHandle(res, '成功刪除全部貼文')
   },
   deletePost: async (req, res) => {
     try {
       const id = req.params.id;
-      await Post.findByIdAndDelete(id);
-      const getAllPosts = await Post.find();
-      successHandle(res, '成功刪除該則貼文', getAllPosts)
+      if (id) {
+        await Post.findByIdAndDelete(id);
+        const getAllPosts = await Post.find();
+        successHandle(res, '成功刪除該則貼文', getAllPosts)
+      } else {
+        errorHandle(res)
+      }
     } catch (err) {
       errorHandle(res, err)
     }
