@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 const postSchema = {
-  name: {
-    type: String,
+  user: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
     required: [true, '名稱必填'],
   },
   tags: {

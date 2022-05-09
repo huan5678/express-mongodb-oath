@@ -2,12 +2,13 @@ const mongoose = require('mongoose');
 
 const userSchema = {
   userEmail: {
-    type: email,
-    required: [true, 'email為必要資訊']
+    type: String,
+    // required: [true, 'email為必要資訊'],
   },
   userPassword: {
     type: String,
-    required: [true, '密碼欄位，請確實填寫']
+    minLength: 8,
+    // required: [true, '密碼欄位，請確實填寫，至少 8 碼'],
   },
   userName: {
     type: String,
@@ -22,10 +23,18 @@ const userSchema = {
     default: Date.now,
     select: false,
   },
-  googleId: String,
-  facebookId: String,
-  lineId: String,
-  githubId: String,
+  thirdPartyAuthor: {
+    googleId: String,
+    facebookId: String,
+    lineId: String,
+    githubId: String,
+  },
+  name: {
+    type: String,
+  },
+  photo: {
+    type: String,
+  }
 }
 
 const User_Schema = new mongoose.Schema(

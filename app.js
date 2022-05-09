@@ -35,8 +35,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-app.use('/posts', postsRouter);
-app.use('/auth', authRouter);
+app.use(postsRouter);
+app.use(authRouter);
 
 app.use((req, res, next) => {
   res.status(404).send({
@@ -61,7 +61,6 @@ app.use((err, req, res, next) => {
     err.isOperational = true;
     return errorHandle(err, res);
   }
-
   errorHandle(err, res)
 })
 

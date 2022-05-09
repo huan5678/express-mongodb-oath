@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const bcrypt = require('bcryptjs');
+const validator = require('validator');
+const apiSecret = process.env.AUTH_SECRET;
+
+const handleErrorAsync = require('../utils/handleErrorAsync');
+const successHandle = require('../utils/successHandle');
+const appError = require('../utils/appError');
 
 const passport = require('passport');
 const { v4: uuidv4 } = require('uuid');
@@ -8,6 +15,35 @@ const { v4: uuidv4 } = require('uuid');
 const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
 const google_client_id = process.env.GOOGLE_CLIENT_ID;
 const google_client_secret = process.env.GOOGLE_CLIENT_SECRET;
+
+router.post('/sign-up',handleErrorAsync(async (req, res, next) => {
+  let {email, password, confirmPassword, name} = req.body;
+  if (!email || !password || !confirmPassword || !name) {
+    return appError(400, '欄位未正確填寫', next);
+  }
+  /*
+  * 使用正規表達式檢測email
+  const emailRules = /^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i;
+  if (!emailRules.test(email)) {
+    return appError(400, '請正確輸入 email 格式', next);
+  }
+  */
+  if (!validator.isEmail(email)) {
+    return appError(400, '請正確輸入 email 格式', next);
+  }
+  const passwordRules = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,}$/gm;
+  if (!passwordRules.test(password)) {
+    return appError(400, '密碼強度不足，請確認是否具至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號，密碼長度需超過 8 個字', next);
+  }
+  if (password !== confirmPassword) {
+    return appError(400, '請確認兩次輸入的密碼是否相同', next);
+  }
+  const salt = bcrypt.genSaltSync(8);
+  password = bcrypt.hashSync(req.body.password, salt)
+  console.log(password)
+  next();
+  }
+))
 
 router.get('/google', (req, res) =>
 {
