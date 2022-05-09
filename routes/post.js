@@ -2,30 +2,16 @@ const postController = require('../controllers/post');
 const express = require('express');
 const router = express.Router();
 
-router.get('/', (req, res) =>
-{
-  postController.getAllPosts(res);
-}
-);
+router.get('/', postController.getAllPosts);
 
-router.post('/', (req, res) =>
-{
-  postController.createPost(req, res);
-})
+router.get('/:id', postController.getPostById);
 
-router.delete('/', (req, res) =>
-{
-  postController.deleteAllPost(res)
-})
+router.post('/', postController.createPost);
 
-router.patch('/:id', (req, res) =>
-{
-  postController.updatePost(req, res)
-})
+router.delete('/', postController.deleteAllPost);
 
-router.delete('/:id', (req, res) =>
-{
-  postController.deletePost(req, res)
-})
+router.patch('/:id', postController.updatePost);
+
+router.delete('/:id', postController.deletePost);
 
 module.exports = router;

@@ -6,7 +6,10 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const passport = require('passport');
 const dotenv = require('dotenv');
-dotenv.config({ path: './.env' });
+dotenv.config({path: './.env'});
+
+const errorHandle = require('./utils/errorHandle');
+const errorHandleDev = require('./utils/errorHandleDev');
 
 require('./utils/passport');
 
@@ -35,22 +38,43 @@ app.use('/users', usersRouter);
 app.use('/posts', postsRouter);
 app.use('/auth', authRouter);
 
-// catch 404 and forward to error handler
-app.use(function (req, res, next)
-{
-  next(createError(404));
+app.use((req, res, next) => {
+  res.status(404).send({
+    status: false,
+    message: '您的路由不存在，請檢查路徑是否正確'
+  })
+})
+
+app.use((err, req, res, next) => {
+  err.statusCode = err.statusCode || 500;
+  if (process.env.NODE_ENV === 'dev') {
+    return errorHandleDev(err, res);
+  }
+  if (err.name === 'ValidationError') {
+    err.message = '資料欄位未正確填寫，請重新輸入！';
+    err.isOperational = true;
+    return errorHandle(err, res);
+  }
+
+  if (err.name === 'CastError') {
+    err.message = '無此 id 資料，請確認後重新輸入！';
+    err.isOperational = true;
+    return errorHandle(err, res);
+  }
+
+  errorHandle(err, res)
+})
+
+process.on('uncaughtException', err => {
+	console.error('Uncaughted Exception!')
+	console.error(err);
+	process.exit(1);
 });
 
-// error handler
-app.use(function (err, req, res, next)
-{
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未捕捉到的 rejection:', promise, '原因：', reason);
 });
+
 
 module.exports = app;
