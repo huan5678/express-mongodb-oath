@@ -1,20 +1,24 @@
 const mongoose = require('mongoose');
 
 const userSchema = {
-  userEmail: {
+  email: {
     type: String,
-    // required: [true, 'email為必要資訊'],
+    required: [true, 'email為必要資訊'],
   },
-  userPassword: {
+  password: {
     type: String,
     minLength: 8,
-    // required: [true, '密碼欄位，請確實填寫，至少 8 碼'],
+    required: [
+      true,
+      '密碼欄位，請確實填寫並符合至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號規定，至少 8 碼',
+    ],
   },
-  userName: {
+  name: {
     type: String,
+    required: [true, '名稱為必要資訊'],
   },
-  userPhoto: String,
-  userGender: {
+  photo: String,
+  gender: {
     type: String,
     enum: ['male', 'female', 'x'],
   },
@@ -29,20 +33,11 @@ const userSchema = {
     lineId: String,
     githubId: String,
   },
-  name: {
-    type: String,
-  },
-  photo: {
-    type: String,
-  }
-}
+};
 
-const User_Schema = new mongoose.Schema(
-  userSchema,
-  {
-    versionKey: false,
-  }
-)
+const User_Schema = new mongoose.Schema(userSchema, {
+  versionKey: false,
+});
 
 const User = mongoose.model('User', User_Schema);
 

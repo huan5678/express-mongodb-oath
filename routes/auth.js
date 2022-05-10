@@ -1,8 +1,10 @@
 const express = require('express');
+const User = require('../models/user');
 const router = express.Router();
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
+const jwt = require('jsonwebtoken');
 const apiSecret = process.env.AUTH_SECRET;
 
 const handleErrorAsync = require('../utils/handleErrorAsync');
@@ -10,43 +12,100 @@ const successHandle = require('../utils/successHandle');
 const appError = require('../utils/appError');
 
 const passport = require('passport');
-const { v4: uuidv4 } = require('uuid');
+const {v4: uuidv4} = require('uuid');
 
 const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
 const google_client_id = process.env.GOOGLE_CLIENT_ID;
 const google_client_secret = process.env.GOOGLE_CLIENT_SECRET;
 
-router.post('/sign-up',handleErrorAsync(async (req, res, next) => {
-  let {email, password, confirmPassword, name} = req.body;
-  if (!email || !password || !confirmPassword || !name) {
-    return appError(400, '欄位未正確填寫', next);
-  }
-  /*
+router.post(
+  '/account/create',
+  handleErrorAsync(async (req, res, next) => {
+    let {email, password, confirmPassword, name} = req.body;
+    if (!email || !password || !confirmPassword || !name) {
+      return appError(400, '欄位未正確填寫', next);
+    }
+    /*
   * 使用正規表達式檢測email
   const emailRules = /^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i;
   if (!emailRules.test(email)) {
     return appError(400, '請正確輸入 email 格式', next);
   }
   */
-  if (!validator.isEmail(email)) {
-    return appError(400, '請正確輸入 email 格式', next);
-  }
-  const passwordRules = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,}$/gm;
-  if (!passwordRules.test(password)) {
-    return appError(400, '密碼強度不足，請確認是否具至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號，密碼長度需超過 8 個字', next);
-  }
-  if (password !== confirmPassword) {
-    return appError(400, '請確認兩次輸入的密碼是否相同', next);
-  }
-  const salt = bcrypt.genSaltSync(8);
-  password = bcrypt.hashSync(req.body.password, salt)
-  console.log(password)
-  next();
-  }
-))
+    if (!validator.isEmail(email)) {
+      return appError(400, '請正確輸入 email 格式', next);
+    }
+    const passwordRules = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,}$/gm;
+    if (!passwordRules.test(password)) {
+      return appError(
+        400,
+        '密碼強度不足，請確認是否具至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號，密碼長度需超過 8 個字',
+        next
+      );
+    }
+    if (password !== confirmPassword) {
+      return appError(400, '請確認兩次輸入的密碼是否相同', next);
+    }
+    const salt = bcrypt.genSaltSync(8);
+    password = bcrypt.hashSync(req.body.password, salt);
+    const userData = {
+      name,
+      email,
+      password,
+    };
+    await User.create(userData);
+    return successHandle(res, '成功建立使用者帳號');
+  })
+);
 
-router.get('/google', (req, res) =>
-{
+const isAuthor = handleErrorAsync(async (req, res, next) => {
+  const accessToken = req.header('Authorization').split('Bearer ').pop();
+  if (!accessToken) {
+    return appError(401, '未帶入驗證碼，請重新登入！', next);
+  }
+  const decoded = jwt.verify(accessToken, apiSecret);
+  const checkDate = (time) => {
+    const now = new Date().getTime();
+    if (now > time * 1000) {
+      return appError(400, '驗證碼已過期，請重新登入！', next);
+    }
+  };
+  checkDate(decoded.exp);
+  req.user = decoded;
+  next();
+});
+
+router.post(
+  '/account/login',
+  handleErrorAsync(async (req, res, next) => {
+    const {email, password} = req.body;
+    if (!email || !password) {
+      return appError(400, '欄位未正確填寫', next);
+    }
+    const user = await User.findOne({email});
+    if (!user) {
+      return appError(404, '無此使用者資訊請確認 email 帳號是否正確', next);
+    }
+    const payload = {
+      id: user._id,
+      name: user.name,
+      photo: user.photo,
+    };
+    const token = jwt.sign(payload, apiSecret, {expiresIn: '7 day'});
+    return successHandle(res, '登入成功', token);
+  })
+);
+
+router.get(
+  '/account/test',
+  isAuthor,
+  handleErrorAsync(async (req, res, next) => {
+    console.log(req.user);
+    successHandle(res, '驗證登入', req.user);
+  })
+);
+
+router.get('/account/google', (req, res) => {
   const query = {
     redirect_uri: google_redirect_url,
     client_id: google_client_id,
@@ -55,61 +114,63 @@ router.get('/google', (req, res) =>
     prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/userinfo.email'
-    ].join(' ')
-  }
-  const auth_url = 'https://accounts.google.com/o/oauth2/auth'
+      'https://www.googleapis.com/auth/userinfo.email',
+    ].join(' '),
+  };
+  const auth_url = 'https://accounts.google.com/o/oauth2/auth';
   const queryString = new URLSearchParams(query).toString();
-  res.redirect(`${auth_url}?${queryString}`)
+  res.redirect(`${auth_url}?${queryString}`);
 });
 
-router.get('/google/callback', async (req, res) =>
-{
+router.get('/account/google/callback', async (req, res) => {
   const code = req.query.code;
   const options = {
     code,
     clientId: google_client_id,
     clientSecret: google_client_secret,
     redirectUri: google_redirect_url,
-    grant_type: 'authorization_code'
-  }
+    grant_type: 'authorization_code',
+  };
   const url = 'https://oauth2.googleapis.com/token';
   const queryString = new URLSearchParams(options).toString();
   const response = await axios.post(url, queryString);
 
-  const { id_token, access_token } = response.data
+  const {id_token, access_token} = response.data;
 
   const getData = await axios.get(
     `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
     {
       headers: {
-        Authorization: `Bearer ${id_token}`
-      }
+        Authorization: `Bearer ${id_token}`,
+      },
     }
-  )
+  );
   res.redirect('/auth/success');
 });
 
+router.get(
+  '/account/facebook',
+  passport.authenticate('facebook', {
+    scope: ['public_profile', 'email'],
+  })
+);
 
-router.get('/facebook', passport.authenticate('facebook', {
-  scope: ['public_profile', 'email']
-}));
-
-router.get('/facebook/callback',
+router.get(
+  '/account/facebook/callback',
   passport.authenticate('facebook', {
     successRedirect: '/auth/success',
     failureRedirect: '/error',
-    session: false
-  }));
+    session: false,
+  })
+);
 
-
-const line_redirect_url = process.env.LINE_REDIRECT_URL;
+// const line_redirect_url = process.env.LINE_REDIRECT_URL;
+const line_redirect_url = 'http://localhost:3000/account/line/callback';
 const line_channel_id = process.env.LINE_CHANNEL_ID;
 const line_channel_secret = process.env.LINE_CHANNEL_SECRET;
 const line_state = 'mongodb-express-line-login';
 
-router.get('/line', (req, res) =>
-{
+router.get('/account/line', (req, res) => {
   const query = {
     response_type: 'code',
     client_id: line_channel_id,
@@ -117,14 +178,13 @@ router.get('/line', (req, res) =>
     state: line_state,
     scope: 'profile',
     nonce: uuidv4(),
-  }
-  const auth_url = 'https://access.line.me/oauth2/v2.1/authorize'
+  };
+  const auth_url = 'https://access.line.me/oauth2/v2.1/authorize';
   const queryString = new URLSearchParams(query).toString();
-  res.redirect(`${auth_url}?${queryString}`)
+  res.redirect(`${auth_url}?${queryString}`);
 });
 
-router.get('/line/callback', async (req, res) =>
-{
+router.get('/account/line/callback', async (req, res) => {
   const code = req.query.code;
   const options = {
     code,
@@ -133,39 +193,50 @@ router.get('/line/callback', async (req, res) =>
     redirect_uri: line_redirect_url,
     state: line_state,
     grant_type: 'authorization_code',
-  }
+  };
   const tokenHeader = {
-    'Content-Type': 'application/x-www-form-urlencoded'
-  }
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
   const url = 'https://api.line.me/oauth2/v2.1/token';
   const queryString = new URLSearchParams(options).toString();
   const response = await axios.post(url, queryString, {
-    headers: tokenHeader
+    headers: tokenHeader,
   });
 
-  const { access_token } = response.data;
+  const {access_token} = response.data;
 
   console.log('data = ', response.data);
   console.log('access = ', access_token);
 
   const getVerify = await axios.get(
-    `https://api.line.me/oauth2/v2.1/verify?access_token=${access_token}`,
-  )
-  const getProfile = await axios.get(
-    'https://api.line.me/v2/profile',
-    {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      }
-    }
-  )
-  res.send(
-    {
-      verify: getVerify.data,
-      profile: getProfile.data,
-    }
+    `https://api.line.me/oauth2/v2.1/verify?access_token=${access_token}`
   );
-  // res.redirect('/auth/success');
+  const getProfile = await axios.get('https://api.line.me/v2/profile', {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+    },
+  });
+  const lineUid = getProfile.data.userId;
+  console.log(lineUid);
+  const user = await User.findOne({'thirdPartyAuthor.lineId': lineUid});
+  // console.log({
+  //   verify: getVerify.data,
+  //   profile: getProfile.data,
+  // });
+
+  if (!user) {
+    const lineData = {
+      name: getProfile.data.displayName,
+      'thirdPartyAuthor.lineId': getProfile.data.userId,
+      photo: getProfile.data.pictureUrl,
+    };
+    const userData = await User.create(lineData);
+    successHandle(res, '已成功已登入', userData);
+  }
+
+  successHandle(res, '已成功已登入', user);
+
+  // res.redirect('/account/success');
 });
 
 const github_redirect_url = process.env.GITHUB_REDIRECT_URL;
@@ -173,28 +244,26 @@ const github_client_id = process.env.GITHUB_CLIENT_ID;
 const github_client_secret = process.env.GITHUB_CLIENT_SECRET;
 const github_state = 'mongodb-express-github-login';
 
-router.get('/github', (req, res) =>
-{
+router.get('/account/github', (req, res) => {
   const query = {
     client_id: github_client_id,
     redirect_uri: github_redirect_url,
     scope: 'user',
     state: github_state,
-  }
-  const auth_url = 'https://github.com/login/oauth/authorize'
+  };
+  const auth_url = 'https://github.com/login/oauth/authorize';
   const queryString = new URLSearchParams(query).toString();
-  res.redirect(`${auth_url}?${queryString}`)
+  res.redirect(`${auth_url}?${queryString}`);
 });
 
-router.get('/github/callback', async (req, res) =>
-{
+router.get('/account/github/callback', async (req, res) => {
   const code = req.query.code;
   const options = {
     code,
     client_id: github_client_id,
     client_secret: github_client_secret,
     redirect_uri: github_redirect_url,
-  }
+  };
   const url = 'https://github.com/login/oauth/access_token';
   const queryString = new URLSearchParams(options).toString();
   const response = await axios.post(url, queryString, {
@@ -204,24 +273,18 @@ router.get('/github/callback', async (req, res) =>
   });
 
   console.log(response.data);
-  const { access_token } = response.data;
+  const {access_token} = response.data;
 
-  const getVerify = await axios.get(
-    `https://api.github.com/user`,
-    {
-      headers: {
-        Authorization: `token ${access_token}`,
-      },
-    }
-  )
+  const getVerify = await axios.get(`https://api.github.com/user`, {
+    headers: {
+      Authorization: `token ${access_token}`,
+    },
+  });
   console.log(getVerify.data);
-  res.send(
-    {
-      verify: getVerify.data,
-    }
-  );
+  res.send({
+    verify: getVerify.data,
+  });
 });
-
 
 // router.get('/facebook', (req, res) =>
 // {
@@ -255,15 +318,8 @@ router.get('/github/callback', async (req, res) =>
 //   console.log(expires_in);
 // });
 
-
-router.get('/success', (req, res) =>
-{
-  res.send('get data from successfully')
-})
-
-router.get('error', (req, res) =>
-{
-  res.send('get data from failed')
-})
+router.get('/account/success', (req, res) => {
+  res.send('get data from successfully');
+});
 
 module.exports = router;
