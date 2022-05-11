@@ -14,10 +14,6 @@ const appError = require('../utils/appError');
 const passport = require('passport');
 const {v4: uuidv4} = require('uuid');
 
-const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
-const google_client_id = process.env.GOOGLE_CLIENT_ID;
-const google_client_secret = process.env.GOOGLE_CLIENT_SECRET;
-
 router.post(
   '/account/create',
   handleErrorAsync(async (req, res, next) => {
@@ -105,6 +101,11 @@ router.get(
   })
 );
 
+// const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
+const google_redirect_url = 'http://localhost:3000/account/google/callback';
+const google_client_id = process.env.GOOGLE_CLIENT_ID;
+const google_client_secret = process.env.GOOGLE_CLIENT_SECRET;
+
 router.get('/account/google', (req, res) => {
   const query = {
     redirect_uri: google_redirect_url,
@@ -145,13 +146,28 @@ router.get('/account/google/callback', async (req, res) => {
       },
     }
   );
-  res.redirect('/auth/success');
+  const googleId = getData.data.id;
+  const user = await User.findOne({'thirdPartyAuthor.googleId': googleId});
+
+  if (!user) {
+    const googleData = {
+      name: getData.data.name,
+      'thirdPartyAuthor.googleId': getData.data.id,
+      email: getData.data.email,
+      photo: getData.data.picture,
+    };
+    const userData = await User.create(googleData);
+    successHandle(res, '已成功已登入', userData);
+  }
+
+  successHandle(res, '已成功已登入', user);
+  // res.redirect('/auth/success');
 });
 
 router.get(
   '/account/facebook',
   passport.authenticate('facebook', {
-    scope: ['public_profile', 'email'],
+    scope: ['public_profile', 'email', 'user_photos', 'user_gender'],
   })
 );
 
@@ -239,7 +255,8 @@ router.get('/account/line/callback', async (req, res) => {
   // res.redirect('/account/success');
 });
 
-const github_redirect_url = process.env.GITHUB_REDIRECT_URL;
+// const github_redirect_url = process.env.GITHUB_REDIRECT_URL;
+const github_redirect_url = 'http://localhost:3000/account/github/callback';
 const github_client_id = process.env.GITHUB_CLIENT_ID;
 const github_client_secret = process.env.GITHUB_CLIENT_SECRET;
 const github_state = 'mongodb-express-github-login';
@@ -256,35 +273,58 @@ router.get('/account/github', (req, res) => {
   res.redirect(`${auth_url}?${queryString}`);
 });
 
-router.get('/account/github/callback', async (req, res) => {
-  const code = req.query.code;
-  const options = {
-    code,
-    client_id: github_client_id,
-    client_secret: github_client_secret,
-    redirect_uri: github_redirect_url,
-  };
-  const url = 'https://github.com/login/oauth/access_token';
-  const queryString = new URLSearchParams(options).toString();
-  const response = await axios.post(url, queryString, {
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+router.get(
+  '/account/github/callback',
+  handleErrorAsync(async (req, res, next) => {
+    const code = req.query.code;
+    const options = {
+      code,
+      client_id: github_client_id,
+      client_secret: github_client_secret,
+      redirect_uri: github_redirect_url,
+    };
+    const url = 'https://github.com/login/oauth/access_token';
+    const queryString = new URLSearchParams(options).toString();
+    const response = await axios.post(url, queryString, {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
 
-  console.log(response.data);
-  const {access_token} = response.data;
+    console.log(response.data);
+    const {access_token} = response.data;
 
-  const getVerify = await axios.get(`https://api.github.com/user`, {
-    headers: {
-      Authorization: `token ${access_token}`,
-    },
-  });
-  console.log(getVerify.data);
-  res.send({
-    verify: getVerify.data,
-  });
-});
+    const getVerify = await axios.get(`https://api.github.com/user`, {
+      headers: {
+        Authorization: `token ${access_token}`,
+      },
+    });
+
+    const name = getVerify.data.name || getVerify.data.login;
+    const email = getVerify.data.email;
+    if (!email) {
+      return appError(400, 'github 帳號 email 未設定公開請確認是否設定開放', next);
+    }
+    console.log(getVerify.data);
+    res.send({
+      verify: getVerify.data,
+    });
+    const id = getVerify.data.id;
+    const user = await User.findOne({'thirdPartyAuthor.githubId': id});
+
+    if (!user) {
+      const githubData = {
+        name,
+        'thirdPartyAuthor.githubId': id,
+        email,
+        photo: getVerify.data.avatar_url,
+      };
+      const userData = await User.create(githubData);
+      successHandle(res, '已成功已登入', userData);
+    }
+    successHandle(res, '已成功已登入', user);
+  })
+);
 
 // router.get('/facebook', (req, res) =>
 // {
