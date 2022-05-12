@@ -1,4 +1,5 @@
 const Post = require('../models/post');
+const User = require('../models/user');
 const handleErrorAsync = require('../utils/handleErrorAsync');
 const successHandle = require('../utils/successHandle');
 const appError = require('../utils/appError');
@@ -29,10 +30,18 @@ const postController = {
   }),
   createPost: handleErrorAsync(async (req, res, next) => {
     const data = req.body;
-    if (typeof data.content === undefined || data.content === null || data.content.trim() === '') {
+    if (typeof data.content === undefined || data.content === null || data.content?.trim() === '') {
       return appError(400, '請正確填寫內容欄位，內容欄位不得為空', next);
     }
-    data.content = data.content.trim();
+    data.content = data.content?.trim();
+    const userId = req.body.user;
+    if (typeof userId === undefined || userId === null || userId.trim() === '') {
+      return appError(400, '請正確填入 id 欄位', next);
+    }
+    const user = await User.findById(userId).exec();
+    if (!user) {
+      return appError(400, '請確認使用者 id 是否正確', next);
+    }
     await Post.create(data);
     const getAllPosts = await Post.find().populate({
       path: 'user',
@@ -46,10 +55,14 @@ const postController = {
     if (typeof id === undefined || id === null || id.trim() === '') {
       return appError(404, '請正確的帶入貼文的 id', next);
     }
-    if (typeof data.content === undefined || data.content === null || data.content.trim() === '') {
+    const postId = await Post.findById(id).exec();
+    if (!postId) {
+      return appError(404, '請確認貼文 id 是否正確', next);
+    }
+    if (typeof data.content === undefined || data.content === null || data.content?.trim() === '') {
       return appError(400, '請正確填寫內容欄位，內容欄位不得為空', next);
     }
-    data.content = data.content.trim();
+    data.content = data.content?.trim();
     await Post.findByIdAndUpdate(id, data);
     const getAllPosts = await Post.find().populate({
       path: 'user',
@@ -66,6 +79,12 @@ const postController = {
     if (typeof id === undefined || id === null || id.trim() === '') {
       return appError(404, '請正確的帶入貼文的 id', next);
     }
+
+    const postId = Post.findById(id);
+    if (!postId) {
+      return appError(404, '請確認貼文 id 是否正確', next);
+    }
+
     await Post.findByIdAndDelete(id);
     const getAllPosts = await Post.find().populate({
       path: 'user',
