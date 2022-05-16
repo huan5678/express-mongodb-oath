@@ -1,3 +1,5 @@
+const express = require('express');
+const router = express.Router();
 const {
   getAllPosts,
   getPostByID,
@@ -6,8 +8,6 @@ const {
   deletePostByID,
   updatePostByID,
 } = require('../controllers/post');
-const express = require('express');
-const router = express.Router();
 
 router.route('/posts').get(getAllPosts).delete(deleteAllPost);
 router.route('/post').post(createPost);
