@@ -49,6 +49,10 @@ router.post(
       email,
       password,
     };
+    const checkUser = User.findOne({email}).exec();
+    if (checkUser) {
+      return appError(400, '此 email 已經被註冊過了，請在嘗試其他 email 或是點選忘記密碼', next);
+    }
     await User.create(userData);
     return successHandle(res, '成功建立使用者帳號');
   })
