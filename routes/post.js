@@ -8,9 +8,14 @@ const {
   deletePostByID,
   updatePostByID,
 } = require('../controllers/post');
+const {isAuthor} = require('../middleware/handleAuthor');
 
-router.route('/posts').get(getAllPosts).delete(deleteAllPost);
-router.route('/post').post(createPost);
-router.route('/post/:id').get(getPostByID).patch(updatePostByID).delete(deletePostByID);
+router.route('/posts').get(isAuthor, getAllPosts).delete(isAuthor, deleteAllPost);
+router.route('/post').post(isAuthor, createPost);
+router
+  .route('/post/:id')
+  .get(isAuthor, getPostByID)
+  .patch(isAuthor, updatePostByID)
+  .delete(isAuthor, deletePostByID);
 
 module.exports = router;
