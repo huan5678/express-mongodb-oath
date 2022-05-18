@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const {passwordRules} = require('../utils/passwordCheck');
 
 const userSchema = {
   email: {
@@ -16,7 +17,7 @@ const userSchema = {
     minLength: [8, '密碼至少 8 個字'],
     required: [true, '密碼欄位，請確實填寫'],
     matches: [
-      /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,}$/,
+      passwordRules,
       '密碼需符合至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號規定',
     ],
   },
