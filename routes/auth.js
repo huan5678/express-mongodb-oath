@@ -2,11 +2,6 @@ const express = require('express');
 const User = require('../models/user');
 const router = express.Router();
 const axios = require('axios');
-const validator = require('validator');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const jwtSecret = process.env.JWT_SECRET;
-const jwtExpires = process.env.JWT_EXPIRES_DAY;
 
 const asyncWrapper = require('../middleware/async');
 const successHandle = require('../utils/successHandle');
@@ -15,83 +10,6 @@ const {isAuthor, generateToken} = require('../middleware/handleAuthor');
 
 const passport = require('passport');
 const {v4: uuidv4} = require('uuid');
-
-router.post(
-  '/account/create',
-  asyncWrapper(async (req, res, next) => {
-    let {email, password, confirmPassword, name} = req.body;
-    if (!email || !password || !confirmPassword || !name) {
-      return appError(400, '欄位未正確填寫', next);
-    }
-    /*
-  * 使用正規表達式檢測email
-  const emailRules = /^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i;
-  if (!emailRules.test(email)) {
-    return appError(400, '請正確輸入 email 格式', next);
-  }
-  */
-    if (!validator.isEmail(email)) {
-      return appError(400, '請正確輸入 email 格式', next);
-    }
-    const passwordRules = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-z])(?=.*[^\w\d\s:])([^\s]){8,}$/gm;
-    if (!passwordRules.test(password)) {
-      return appError(
-        400,
-        '密碼強度不足，請確認是否具至少有 1 個數字， 1 個大寫英文， 1 個小寫英文及 1 個特殊符號，密碼長度需 8 個字以上',
-        next
-      );
-    }
-    if (password !== confirmPassword) {
-      return appError(400, '請確認兩次輸入的密碼是否相同', next);
-    }
-    const userData = {
-      name,
-      email,
-      password,
-    };
-    const checkUser = User.findOne({email}).exec();
-    if (checkUser) {
-      return appError(400, '此 email 已經被註冊過了，請在嘗試其他 email 或是點選忘記密碼', next);
-    }
-    await User.create(userData);
-    return successHandle(res, '成功建立使用者帳號');
-  })
-);
-
-router.post(
-  '/account/login',
-  asyncWrapper(async (req, res, next) => {
-    const {email, password} = req.body;
-    if (!email || !password) {
-      return appError(400, 'email 或 password 欄位未正確填寫', next);
-    }
-    const user = await User.findOne({email});
-    if (!user) {
-      return appError(404, '無此使用者資訊請確認 email 帳號是否正確', next);
-    }
-    const userPassword = await User.findOne({email}).select('+password');
-    const checkPassword = bcrypt.compare(req.body.password, userPassword);
-    if (!checkPassword) {
-      return appError(400, '請確認密碼是否正確，請再嘗試輸入', next);
-    }
-    const payload = {
-      id: user._id,
-      name: user.name,
-      photo: user.photo,
-    };
-    const token = jwt.sign(payload, jwtSecret, {expiresIn: jwtExpires});
-    return successHandle(res, '登入成功', token);
-  })
-);
-
-router.get(
-  '/account/test',
-  isAuthor,
-  asyncWrapper(async (req, res, next) => {
-    console.log(req.user);
-    successHandle(res, '驗證登入', req.user);
-  })
-);
 
 // const google_redirect_url = process.env.GOOGLE_REDIRECT_URL;
 const google_redirect_url = 'http://localhost:3000/account/google/callback';

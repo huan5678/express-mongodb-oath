@@ -49,12 +49,16 @@ const authController = {
     }
     const user = await User.findOne({email});
     if (!user) {
-      return appError(404, '無此使用者資訊請確認 email 帳號是否正確', next);
+      return appError(
+        404,
+        '你輸入的用戶名稱不屬於任何帳號。請檢查你的用戶名稱，然後再試一次。',
+        next
+      );
     }
     const userPassword = await User.findOne({email}).select('+password');
     const checkPassword = bcrypt.compareSync(req.body.password, userPassword.password);
     if (!checkPassword) {
-      return appError(400, '請確認密碼是否正確，請再嘗試輸入', next);
+      return appError(400, '很抱歉，你的密碼不正確，請再次檢查密碼。', next);
     }
     const token = generateToken(user);
     return successHandle(res, '登入成功', token);
