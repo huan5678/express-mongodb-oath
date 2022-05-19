@@ -10,6 +10,10 @@ const {
 } = require('../controllers/user');
 const {isAuthor} = require('../middleware/handleAuthor');
 
-router.route('/').post();
+router.route('/user/create').post(userCreate);
+router.route('/user/login').post(userLogin);
+router.route('/user/update_password').post(isAuthor, updatePassword);
+router.route('/user/profile').get(isAuthor, getProfile);
+router.route('/user/profile').patch(isAuthor, updateProfile);
 
 module.exports = router;

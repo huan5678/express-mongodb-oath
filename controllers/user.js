@@ -1,14 +1,14 @@
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
 const User = require('../models/user');
-const handleErrorAsync = require('../middleware/handleErrorAsync');
+const asyncWrapper = require('../middleware/async');
 const successHandle = require('../utils/successHandle');
 const appError = require('../utils/appError');
-const {generateToken} = require('../middleware/handleJWT');
+const {generateToken} = require('../middleware/handleAuthor');
 const {passwordCheck} = require('../utils/passwordCheck');
 
 const userController = {
-  userCreate: handleErrorAsync(async (req, res, next) => {
+  userCreate: asyncWrapper(async (req, res, next) => {
     let {email, password, confirmPassword, name} = req.body;
     if (!email || !password || !confirmPassword || !name) {
       return appError(400, '欄位未正確填寫', next);
@@ -28,7 +28,7 @@ const userController = {
       return appError(400, '請確認兩次輸入的密碼是否相同', next);
     }
 
-    const user = User.findOne(email).exec();
+    const user = User.findOne({email}).exec();
     if (user) {
       return appError(400, '此帳號已有人使用，請試試其他 Email 帳號', next);
     }
@@ -37,11 +37,12 @@ const userController = {
       name,
       email,
       password,
+      isValidator: true,
     };
     await User.create(userData);
     return successHandle(res, '成功建立使用者帳號');
   }),
-  userLogin: handleErrorAsync(async (req, res, next) => {
+  userLogin: asyncWrapper(async (req, res, next) => {
     const {email, password} = req.body;
     if (!email || !password) {
       return appError(400, 'email 或 password 欄位未正確填寫', next);
@@ -58,12 +59,12 @@ const userController = {
     const token = generateToken(user);
     return successHandle(res, '登入成功', token);
   }),
-  getProfile: handleErrorAsync(async (req, res, next) => {
+  getProfile: asyncWrapper(async (req, res, next) => {
     const userId = req.user.id;
     const user = await User.findById(userId);
     return successHandle(res, '成功取得使用者資訊', user);
   }),
-  updatePassword: handleErrorAsync(async (req, res, next) => {
+  updatePassword: asyncWrapper(async (req, res, next) => {
     let {password, confirmPassword} = req.body;
     if (!password || !confirmPassword) {
       return appError(400, '欄位未正確填寫', next);
@@ -79,7 +80,7 @@ const userController = {
     await User.findByIdAndUpdate(userId, password);
     return successHandle(res, '成功更新使用者密碼！', {});
   }),
-  updateProfile: handleErrorAsync(async (req, res, next) => {
+  updateProfile: asyncWrapper(async (req, res, next) => {
     let {name, photo, gender} = req.body;
     if (!name && !photo && !gender) {
       return appError(400, '要修改的欄位未正確填寫', next);
